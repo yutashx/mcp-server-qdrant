@@ -1,6 +1,7 @@
 # mcp-server-qdrant: A Qdrant MCP server
+[![smithery badge](https://smithery.ai/badge/mcp-server-qdrant)](https://smithery.ai/protocol/mcp-server-qdrant)
 
-> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you’re building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
+> The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you're building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
 
 This repository is an example of how to create a MCP server for [Qdrant](https://qdrant.tech/), a vector search engine.
 
@@ -25,6 +26,14 @@ It acts as a semantic memory layer on top of the Qdrant database.
    - Returns: Memories stored in the Qdrant database as separate messages
 
 ## Installation
+
+### Installing via Smithery
+
+To install Qdrant MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/protocol/mcp-server-qdrant):
+
+```bash
+npx @smithery/cli install mcp-server-qdrant --client claude
+```
 
 ### Using uv (recommended)
 
