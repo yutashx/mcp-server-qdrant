@@ -40,8 +40,9 @@ class FastEmbedProvider(EmbeddingProvider):
         Return the name of the vector for the Qdrant collection.
         Important: This is compatible with the FastEmbed logic used before 0.6.0.
         """
-        model_name = self.embedding_model.model_name.split("/")[-1].lower()
-        return f"fast-{model_name}"
+        #model_name = self.embedding_model.model_name.split("/")[-1].lower()
+        #return f"fast-{model_name}"
+        return "text-dense"
 
     def get_vector_size(self) -> int:
         """Get the size of the vector for the Qdrant collection."""

@@ -55,6 +55,36 @@ class QdrantConnector:
         """
         response = await self._client.get_collections()
         return [collection.name for collection in response.collections]
+        
+    async def get_collection_info(self, collection_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed information about a specific collection.
+        :param collection_name: The name of the collection to get information for.
+        :return: A dictionary containing collection information, or None if the collection doesn't exist.
+        """
+        exists = await self._client.collection_exists(collection_name)
+        if not exists:
+            return None
+            
+        # Get collection information
+        collection_info = await self._client.get_collection(collection_name=collection_name)
+        
+        # Return as a dictionary
+        return {
+            "name": collection_name,
+            "status": collection_info.status,
+            "vectors_count": collection_info.vectors_count,
+            "points_count": collection_info.points_count,
+            "segments_count": collection_info.segments_count,
+            "config": {
+                "params": collection_info.config.params.dict() if collection_info.config.params else None,
+                "hnsw_config": collection_info.config.hnsw_config.dict() if collection_info.config.hnsw_config else None,
+                "optimizer_config": collection_info.config.optimizer_config.dict() if collection_info.config.optimizer_config else None,
+                "wal_config": collection_info.config.wal_config.dict() if collection_info.config.wal_config else None,
+                "quantization_config": collection_info.config.quantization_config.dict() if collection_info.config.quantization_config else None,
+            },
+            "payload_schema": collection_info.payload_schema,
+        }
 
     async def store(self, entry: Entry, *, collection_name: Optional[str] = None):
         """
@@ -73,14 +103,14 @@ class QdrantConnector:
         embeddings = await self._embedding_provider.embed_documents([entry.content])
 
         # Add to Qdrant
-        vector_name = self._embedding_provider.get_vector_name()
+        # Use raw vector instead of named vector
         payload = {"document": entry.content, "metadata": entry.metadata}
         await self._client.upsert(
             collection_name=collection_name,
             points=[
                 models.PointStruct(
                     id=uuid.uuid4().hex,
-                    vector={vector_name: embeddings[0]},
+                    vector=embeddings[0],  # Use the raw vector directly
                     payload=payload,
                 )
             ],
@@ -110,20 +140,93 @@ class QdrantConnector:
         vector_name = self._embedding_provider.get_vector_name()
 
         # Search in Qdrant
+        # Use the raw vector approach (no vector name)
         search_results = await self._client.query_points(
             collection_name=collection_name,
-            query=query_vector,
-            using=vector_name,
+            query=query_vector,  # The parameter is 'query', not 'query_vector'
             limit=limit,
         )
 
-        return [
-            Entry(
-                content=result.payload["document"],
-                metadata=result.payload.get("metadata"),
+        entries = []
+        for result in search_results.points:
+            try:
+                # Handle different potential payload structures
+                if "document" in result.payload:
+                    content = result.payload["document"]
+                elif "content" in result.payload:
+                    content = result.payload["content"]
+                else:
+                    # If no content field found, convert the entire payload to string
+                    content = str(result.payload)
+                
+                entries.append(Entry(
+                    content=content,
+                    metadata=result.payload.get("metadata"),
+                ))
+            except Exception as e:
+                logger.error(f"Error processing search result: {e}")
+                # Skip this result and continue with others
+        
+        return entries
+
+    async def search_by_metadata(
+        self, metadata: Metadata, *, collection_name: Optional[str] = None
+    ) -> list[Entry]:
+        """
+        Find points in the Qdrant collection that exactly match the provided metadata.
+        If there are no entries found, an empty list is returned.
+        :param metadata: The metadata to search for.
+        :param collection_name: The name of the collection to search in, optional. If not provided,
+                                the default collection is used.
+        :return: A list of entries found.
+        """
+        collection_name = collection_name or self._default_collection_name
+        collection_exists = await self._client.collection_exists(collection_name)
+        if not collection_exists:
+            return []
+
+        # Create a filter for the exact metadata match
+        filter_conditions = []
+        for key, value in metadata.items():
+            filter_conditions.append(
+                models.FieldCondition(
+                    key=f"metadata.{key}",
+                    match=models.MatchValue(value=value),
+                )
             )
-            for result in search_results.points
-        ]
+        
+        # Search in Qdrant with the metadata filter
+        # For metadata-only search, we need to use scroll with a filter
+        # scroll returns a tuple of (points, next_page_offset)
+        points, _ = await self._client.scroll(
+            collection_name=collection_name,
+            scroll_filter=models.Filter(
+                must=filter_conditions
+            ),
+            limit=100,  # Use a high limit to find all matches
+        )
+
+        entries = []
+        for result in points:
+            try:
+                # Handle different potential payload structures
+                if "document" in result.payload:
+                    content = result.payload["document"]
+                elif "content" in result.payload:
+                    content = result.payload["content"]
+                else:
+                    # If no content field found, convert the entire payload to string
+                    content = str(result.payload)
+                
+                entries.append(Entry(
+                    content=content,
+                    metadata=result.payload.get("metadata"),
+                ))
+            except Exception as e:
+                logger.error(f"Error processing search result: {e}")
+                # Skip this result and continue with others
+        
+        return entries
 
     async def _ensure_collection_exists(self, collection_name: str):
         """
@@ -135,14 +238,11 @@ class QdrantConnector:
             # Create the collection with the appropriate vector size
             vector_size = self._embedding_provider.get_vector_size()
 
-            # Use the vector name as defined in the embedding provider
-            vector_name = self._embedding_provider.get_vector_name()
+            # Create collection with unnamed vectors 
             await self._client.create_collection(
                 collection_name=collection_name,
-                vectors_config={
-                    vector_name: models.VectorParams(
-                        size=vector_size,
-                        distance=models.Distance.COSINE,
-                    )
-                },
+                vectors_config=models.VectorParams(
+                    size=vector_size,
+                    distance=models.Distance.COSINE,
+                ),
             )

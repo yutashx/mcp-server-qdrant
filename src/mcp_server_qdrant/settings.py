@@ -9,10 +9,16 @@ DEFAULT_TOOL_STORE_DESCRIPTION = (
     "Keep the memory for later use, when you are asked to remember something."
 )
 DEFAULT_TOOL_FIND_DESCRIPTION = (
-    "Look up memories in Qdrant. Use this tool when you need to: \n"
+    "Look up memories in Qdrant with truncated results (first 200 characters). Use this tool when you need to: \n"
     " - Find memories by their content \n"
-    " - Access memories for further analysis \n"
-    " - Get some personal information about the user"
+    " - Get summarized view of matching documents \n"
+    " - Quickly scan through multiple search results"
+)
+DEFAULT_TOOL_MATCH_DESCRIPTION = (
+    "Retrieve full document content by exact metadata match. Use this tool when you need to: \n"
+    " - Get the complete document content after finding it with qdrant-find \n"
+    " - Access the full text of a document using its metadata \n"
+    " - Retrieve specific documents when you know their exact identifiers"
 )
 
 
@@ -28,6 +34,10 @@ class ToolSettings(BaseSettings):
     tool_find_description: str = Field(
         default=DEFAULT_TOOL_FIND_DESCRIPTION,
         validation_alias="TOOL_FIND_DESCRIPTION",
+    )
+    tool_match_description: str = Field(
+        default=DEFAULT_TOOL_MATCH_DESCRIPTION,
+        validation_alias="TOOL_MATCH_DESCRIPTION",
     )
 
 
