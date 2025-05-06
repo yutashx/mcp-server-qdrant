@@ -430,6 +430,24 @@ For workspace configuration with Docker, use this in `.vscode/mcp.json`:
 }
 ```
 
+For local Qdrant mode, you can use the following configuration.
+
+```json
+{
+  "servers": {
+    "qdrant": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/yutashx/repos/mcp-server-qdrant",
+        "run",
+        "mcp-server-qdrant"
+      ],    
+    }
+  }
+}
+```
+
 ## Contributing
 
 If you have suggestions for how mcp-server-qdrant could be improved, or want to report a bug, open an issue!
